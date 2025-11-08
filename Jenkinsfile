@@ -23,21 +23,34 @@ pipeline {
                 archiveArtifacts artifacts: '**/target/*.war'
             }
         }
-stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube Server') {
-                    withCredentials([string(credentialsId: env.SONAR_CREDENTIAL_ID, variable: 'Jenkins_Sonar_token')]) {
-                        sh """
-                            mvn sonar:sonar \
-                                -Dsonar.projectKey=wwp \
-                                -Dsonar.host.url=${env.SONAR_HOST_URL} \
-                                -Dsonar.login=${Jenkins_Sonar_token} \
-                                -Dsonar.java.binaries=target/classes
-                        """
-                    }
-                }
-            }
+// stage('SonarQube Analysis') {
+//             steps {
+//                 withSonarQubeEnv('SonarQube Server') {
+//                     withCredentials([string(credentialsId: env.SONAR_CREDENTIAL_ID, variable: 'Jenkins_Sonar_token')]) {
+//                         sh """
+//                             mvn sonar:sonar \
+//                                 -Dsonar.projectKey=wwp \
+//                                 -Dsonar.host.url=${env.SONAR_HOST_URL} \
+//                                 -Dsonar.login=${Jenkins_Sonar_token} \
+//                                 -Dsonar.java.binaries=target/classes
+//                         """
+//                     }
+//                 }
+//             }
+// }
+
+        stage('SonarQube Analysis') {
+    steps {
+        withSonarQubeEnv('SonarQube Server') {
+            sh """
+                mvn clean verify sonar:sonar \
+                  -Dsonar.projectKey=wwp \
+                  -Dsonar.java.binaries=target/classes
+            """
+        }
+    }
 }
+
        stage('Extract Version') {
             steps {
                 script {
