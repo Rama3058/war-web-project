@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     environment {
-        TOMCAT_SERVER = "43.204.112.166"
+        TOMCAT_SERVER = "16.170.168.204"
         TOMCAT_USER = "ubuntu"
-        NEXUS_URL = "3.109.203.221:8081"
+        NEXUS_URL = "51.21.200.115:8081"
         NEXUS_REPOSITORY = "maven-releases"
-        NEXUS_CREDENTIAL_ID = "nexus_creds"
+        NEXUS_CREDENTIAL_ID = "Nexus-credentials"
         SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
-        SONAR_HOST_URL = "http://13.233.68.209:9000"
+        SONAR_HOST_URL = "http://13.50.109.189:9000"
         SONAR_CREDENTIAL_ID = "sonar_creds"  // Replace with your SonarQube credential ID
     }
 
@@ -26,12 +26,12 @@ pipeline {
 stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube Server') {
-                    withCredentials([string(credentialsId: env.SONAR_CREDENTIAL_ID, variable: 'SONAR_TOKEN')]) {
+                    withCredentials([string(credentialsId: env.SONAR_CREDENTIAL_ID, variable: 'Jenkins_Sonar_token')]) {
                         sh """
                             mvn sonar:sonar \
                                 -Dsonar.projectKey=wwp \
                                 -Dsonar.host.url=${env.SONAR_HOST_URL} \
-                                -Dsonar.login=${SONAR_TOKEN} \
+                                -Dsonar.login=${Jenkins_Sonar_token} \
                                 -Dsonar.java.binaries=target/classes
                         """
                     }
