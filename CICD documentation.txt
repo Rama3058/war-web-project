@@ -1,0 +1,299 @@
+
+# 🧭 Jenkins CI/CD Pipeline for Java WAR Deployment on tomcat server
+
+**Build → SonarQube → Nexus → Tomcat**
+
+---
+
+## 🎯 Objective
+
+This project demonstrates a **complete CI/CD pipeline** for a Java web application using **Jenkins**, **SonarQube**, **Nexus Repository**, and **Tomcat Server**.
+
+Students will learn how to:
+
+1. Build a Java WAR using **Maven**
+2. Perform **SonarQube code analysis**
+3. Upload the artifact to **Nexus Repository**
+4. **Deploy automatically** to a remote **Tomcat server**
+
+---
+
+## 🧩 Architecture Diagram
+
+```
+           ┌──────────────────────────┐
+           │     Developer (Git)      │
+           └────────────┬─────────────┘
+                        │
+                        ▼
+               ┌────────────────┐
+               │   Jenkins CI   │
+               └────────────────┘
+                        │
+                        ├──────────▶ SonarQube (Code Quality)
+                        │
+                        ├──────────▶ Nexus (Artifact Storage)
+                        │
+                        └──────────▶ Tomcat Server (Deployment)
+```
+
+---
+
+## 🧱 Prerequisites
+
+| Component     | Description         | Example                     |
+| ------------- | ------------------- | --------------------------- |
+| **Jenkins**   | CI/CD Server        | Ubuntu 22.04                |
+| **Maven**     | Build tool          | `mvn -v`                    |
+| **Git**       | Version control     | `git --version`             |
+| **SonarQube** | Code analysis       | `http://13.49.134.19:9000`  |
+| **Nexus**     | Artifact repository | `http://35.154.49.135:8081` |
+| **Tomcat**    | Application server  | `13.53.169.161`             |
+
+---
+
+## ⚙️ Jenkins Configuration
+
+### 1️⃣ Install Required Plugins
+
+In Jenkins → **Manage Jenkins → Plugins → Available Plugins**:
+
+| Plugin Name             | Purpose                      |
+| ----------------------- | ---------------------------- |
+| Pipeline                | Declarative Pipeline support |
+| Maven Integration       | Build Java projects          |
+| SonarQube Scanner       | SonarQube integration        |
+| Nexus Artifact Uploader | Upload artifacts to Nexus    |
+| SSH Agent               | Secure SSH-based deployment  |
+
+---
+
+### 2️⃣ Configure Maven
+
+**Manage Jenkins → Global Tool Configuration → Maven**
+
+* Name: `maven`
+* Install automatically (or set path)
+
+---
+
+### 3️⃣ Configure SonarQube
+
+**Manage Jenkins → System → SonarQube servers**
+
+
+| Field       | Value                                 |
+| ----------- | ------------------------------------- |
+| Name        | `SonarQube Server`                    |
+| Server URL  | `http://13.49.134.19:9000`            |
+| Credentials | Jenkins token (`Jenkins_Sonar_token`) |
+
+---
+
+### 4️⃣ Configure Credentials
+
+| ID                    | Type                | Description      |
+| --------------------- | ------------------- | ---------------- |
+| `Nexus-credentials`   | Username & Password | Nexus login      |
+| `Jenkins_Sonar_token` | Secret text         | SonarQube token  |
+| *(Optional)*          | SSH Key             | Access to Tomcat |
+
+To add:
+
+1. Go to **Manage Jenkins → Credentials → Global → Add Credentials**
+2. Select type and fill details
+
+---
+
+### 5️⃣ SSH Key Setup
+
+On Jenkins:
+
+```bash
+sudo -u jenkins ssh-keygen -t rsa -b 4096 -f /var/lib/jenkins/.ssh/jenkins_key -N ""
+cat /var/lib/jenkins/.ssh/jenkins_key.pub
+```
+
+On Tomcat server (`ubuntu@13.53.169.161`):
+
+```bash
+mkdir -p ~/.ssh
+echo "<paste-public-key-here>" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Test connection:
+
+```bash
+sudo -u jenkins ssh -i /var/lib/jenkins/.ssh/jenkins_key ubuntu@13.53.169.161
+```
+
+✅ Should log in **without a password**.
+
+---
+
+## 🚀 Pipeline Script
+
+Save this as **`Jenkinsfile`** in your Git repository:
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        TOMCAT_SERVER = "13.53.169.161"
+        TOMCAT_USER = "ubuntu"
+        SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
+
+        NEXUS_URL = "35.154.49.135:8081"
+        NEXUS_REPOSITORY = "maven-releases"
+        NEXUS_CREDENTIAL_ID = "Nexus-credentials"
+
+        SONAR_HOST_URL = "http://13.49.134.19:9000"
+        SONAR_CREDENTIAL_ID = "Jenkins_Sonar_token"
+    }
+
+    tools {
+        maven "maven"
+    }
+
+    stages {
+        stage('Build WAR') {
+            steps {
+                echo "🔧 Building WAR package..."
+                sh 'mvn clean package -DskipTests'
+                archiveArtifacts artifacts: '**/target/*.war'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo "🔍 Running SonarQube analysis..."
+                withSonarQubeEnv('SonarQube Server') {
+                    withCredentials([string(credentialsId: "${SONAR_CREDENTIAL_ID}", variable: 'SONAR_TOKEN')]) {
+                        sh """
+                            mvn sonar:sonar \
+                              -Dsonar.projectKey=wwp \
+                              -Dsonar.host.url=${SONAR_HOST_URL} \
+                              -Dsonar.login=${SONAR_TOKEN} \
+                              -Dsonar.java.binaries=target/classes
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Extract Version') {
+            steps {
+                script {
+                    env.ART_VERSION = sh(
+                        script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
+                        returnStdout: true
+                    ).trim()
+                    echo "Project Version: ${env.ART_VERSION}"
+                }
+            }
+        }
+
+        stage('Publish to Nexus') {
+            steps {
+                script {
+                    def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
+                    nexusArtifactUploader(
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        nexusUrl: "${NEXUS_URL}",
+                        groupId: 'koddas.web.war',
+                        version: "${ART_VERSION}",
+                        repository: "${NEXUS_REPOSITORY}",
+                        credentialsId: "${NEXUS_CREDENTIAL_ID}",
+                        artifacts: [[
+                            artifactId: 'wwp',
+                            classifier: '',
+                            file: warFile,
+                            type: 'war'
+                        ]]
+                    )
+                }
+            }
+        }
+
+        stage('Deploy to Tomcat') {
+            steps {
+                script {
+                    def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
+                    sh """
+                        scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
+                        ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} '
+                            sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
+                            sudo systemctl restart tomcat
+                        '
+                    """
+                }
+            }
+        }
+
+        stage('Display URLs') {
+            steps {
+                script {
+                    def appUrl = "http://${TOMCAT_SERVER}:8080/wwp-${ART_VERSION}"
+                    def nexusUrl = "http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${ART_VERSION}/wwp-${ART_VERSION}.war"
+                    
+                    echo "🌐 Application URL: ${appUrl}"
+                    echo "📦 Nexus Artifact URL: ${nexusUrl}"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline completed successfully!'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check logs for details.'
+        }
+    }
+}
+```
+
+---
+
+## 🧪 Run the Pipeline
+
+1. In Jenkins, create a **New Item → Pipeline**
+2. Select:
+
+   * Pipeline script from SCM → Git
+   * Repository URL → your GitHub or GitLab repo
+3. Save and **Build Now**
+
+---
+
+## 📊 Output Summary
+
+| Stage        | Description                   | Example Output                               |
+| ------------ | ----------------------------- | -------------------------------------------- |
+| Build WAR    | Compiles and packages project | `target/wwp-1.0.war`                         |
+| SonarQube    | Static code analysis          | `Quality Gate Passed`                        |
+| Nexus Upload | Uploads WAR                   | `Uploaded wwp-1.0.war to Nexus`              |
+| Deploy       | Copies to Tomcat              | `Restarting Tomcat... Done`                  |
+| Display URLs | Shows URLs                    | `App URL: http://13.53.169.161:8080/wwp-1.0` |
+
+---
+## 🏁 Learning Outcomes
+
+After completing this lab, students will:
+✅ Understand end-to-end CI/CD for Java apps
+✅ Configure SonarQube & Nexus integrations
+✅ Deploy automatically to a Tomcat environment
+
+
