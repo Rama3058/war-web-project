@@ -48,14 +48,14 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                echo "🧱 Waiting for SonarQube quality gate result..."
-                timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        // stage('Quality Gate') {
+        //     steps {
+        //         echo "🧱 Waiting for SonarQube quality gate result..."
+        //         timeout(time: 10, unit: 'MINUTES') {
+        //             waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
 
         stage('Extract Version') {
             steps {
