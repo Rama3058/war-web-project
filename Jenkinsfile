@@ -10,7 +10,7 @@ pipeline {
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "Nexus-credentials"
 
-        SONAR_HOST_URL = "http://13.50.109.189:9000"
+        SONAR_HOST_URL = "http://13.49.134.90:9000"
         SONAR_CREDENTIAL_ID = "Jenkins_Sonar_token" // ✅ Updated to match your credentials list
     }
 
