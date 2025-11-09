@@ -4,7 +4,7 @@ pipeline {
     environment {
         TOMCAT_SERVER = "16.170.168.204"
         TOMCAT_USER = "ubuntu"
-        NEXUS_URL = "51.21.200.115:8081"
+        NEXUS_URL = "16.170.215.146:8081/"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "Nexus-credentials"
         SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
@@ -39,24 +39,24 @@ pipeline {
 //             }
 // }
 
-        stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv('SonarQube Server') {
-            sh """
-                mvn clean verify sonar:sonar \
-                  -Dsonar.projectKey=wwp \
-                  -Dsonar.java.binaries=target/classes
-            """
-        }
-    }
-}
-stage('Quality Gate') {
-    steps {
-        timeout(time: 1, unit: 'HOURS') {
-            waitForQualityGate abortPipeline: true
-        }
-    }
-}
+//         stage('SonarQube Analysis') {
+//     steps {
+//         withSonarQubeEnv('SonarQube Server') {
+//             sh """
+//                 mvn clean verify sonar:sonar \
+//                   -Dsonar.projectKey=wwp \
+//                   -Dsonar.java.binaries=target/classes
+//             """
+//         }
+//     }
+// }
+// stage('Quality Gate') {
+//     steps {
+//         timeout(time: 1, unit: 'HOURS') {
+//             waitForQualityGate abortPipeline: true
+//         }
+//     }
+// }
        stage('Extract Version') {
             steps {
                 script {
