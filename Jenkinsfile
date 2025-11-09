@@ -4,12 +4,14 @@ pipeline {
     environment {
         TOMCAT_SERVER = "16.170.168.204"
         TOMCAT_USER = "ubuntu"
-        NEXUS_URL = "16.170.215.146:8081/"
+        SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
+
+        NEXUS_URL = "16.170.215.146:8081"           // ✅ Fixed: no trailing slash
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "Nexus-credentials"
-        SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
+
         SONAR_HOST_URL = "http://13.50.109.189:9000"
-        SONAR_CREDENTIAL_ID = "sonar_creds"  // Replace with your SonarQube credential ID
+        SONAR_CREDENTIAL_ID = "Jenkins_Sonar_token" // ✅ Updated to match your credentials list
     }
 
     tools {
@@ -17,50 +19,47 @@ pipeline {
     }
 
     stages {
-                stage('Build WAR') {
+
+        stage('Build WAR') {
             steps {
+                echo "🔧 Building WAR package..."
                 sh 'mvn clean package -DskipTests'
                 archiveArtifacts artifacts: '**/target/*.war'
             }
         }
-// stage('SonarQube Analysis') {
-//             steps {
-//                 withSonarQubeEnv('SonarQube Server') {
-//                     withCredentials([string(credentialsId: env.SONAR_CREDENTIAL_ID, variable: 'Jenkins_Sonar_token')]) {
-//                         sh """
-//                             mvn sonar:sonar \
-//                                 -Dsonar.projectKey=wwp \
-//                                 -Dsonar.host.url=${env.SONAR_HOST_URL} \
-//                                 -Dsonar.login=${Jenkins_Sonar_token} \
-//                                 -Dsonar.java.binaries=target/classes
-//                         """
-//                     }
-//                 }
-//             }
-// }
 
-//         stage('SonarQube Analysis') {
-//     steps {
-//         withSonarQubeEnv('SonarQube Server') {
-//             sh """
-//                 mvn clean verify sonar:sonar \
-//                   -Dsonar.projectKey=wwp \
-//                   -Dsonar.java.binaries=target/classes
-//             """
-//         }
-//     }
-// }
-// stage('Quality Gate') {
-//     steps {
-//         timeout(time: 1, unit: 'HOURS') {
-//             waitForQualityGate abortPipeline: true
-//         }
-//     }
-// }
-       stage('Extract Version') {
+        // stage('SonarQube Analysis') {
+        //     steps {
+        //         echo "🔍 Running SonarQube analysis..."
+        //         withSonarQubeEnv('SonarQube Server') {
+        //             withCredentials([string(credentialsId: env.SONAR_CREDENTIAL_ID, variable: 'SONAR_TOKEN')]) {
+        //                 sh """
+        //                     mvn sonar:sonar \
+        //                       -Dsonar.projectKey=wwp \
+        //                       -Dsonar.host.url=${SONAR_HOST_URL} \
+        //                       -Dsonar.login=${SONAR_TOKEN} \
+        //                       -Dsonar.java.binaries=target/classes
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
+
+        // stage('Quality Gate') {
+        //     steps {
+        //         echo "🧱 Waiting for SonarQube quality gate result..."
+        //         timeout(time: 10, unit: 'MINUTES') {
+        //             waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
+
+        stage('Extract Version') {
             steps {
                 script {
+                    echo "📦 Extracting version from pom.xml..."
                     env.ART_VERSION = sh(script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout", returnStdout: true).trim()
+                    echo "Project Version: ${env.ART_VERSION}"
                 }
             }
         }
@@ -68,17 +67,24 @@ pipeline {
         stage('Publish to Nexus') {
             steps {
                 script {
+                    echo "⬆️ Uploading WAR to Nexus repository..."
                     def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
                     nexusArtifactUploader(
-                        nexusVersion: "nexus3",
-                        protocol: "http",
-                        nexusUrl: "${NEXUS_URL}",
-                        groupId: "koddas.web.war",
-                        artifactId: "wwp",
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        nexusUrl: "${NEXUS_URL}",        // ✅ Correct URL
+                        groupId: 'koddas.web.war',
                         version: "${ART_VERSION}",
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
-                        artifacts: [[artifactId: "wwp", file: warFile, type: "war"]]
+                        artifacts: [
+                            [
+                                artifactId: 'wwp',
+                                classifier: '',
+                                file: warFile,
+                                type: 'war'
+                            ]
+                        ]
                     )
                 }
             }
@@ -87,6 +93,7 @@ pipeline {
         stage('Deploy to Tomcat') {
             steps {
                 script {
+                    echo "🚀 Deploying WAR to Tomcat server..."
                     def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
                     sh """
                         scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
