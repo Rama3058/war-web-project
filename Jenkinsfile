@@ -3,17 +3,17 @@ pipeline {
 
     environment {
         // ---- Server & Credentials ----
-        TOMCAT_SERVER = "13.53.169.161"
+        TOMCAT_SERVER = "16.16.220.174"
         TOMCAT_USER = "ubuntu"
         SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
 
         // ---- Nexus ----
-        NEXUS_URL = "35.154.49.135:8081"              // ✅ No trailing slash
+        NEXUS_URL = "15.206.28.175:8081"              // ✅ No trailing slash
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "Nexus-credentials"
 
         // ---- SonarQube ----
-        SONAR_HOST_URL = "http://13.49.134.19:9000"
+        SONAR_HOST_URL = "http://13.50.232.84:9000"
         SONAR_CREDENTIAL_ID = "Jenkins_Sonar_token"    // ✅ Matches Jenkins credentials
     }
 
