@@ -11,7 +11,7 @@ pipeline {
 
         SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
 
-        // ⚠ TEMPORARY – Hard-coded SonarQube details
+        // TEMP – Hard-coded SonarQube details
         SONAR_HOST_URL = "http://15.206.195.36:9000"
         SONAR_TOKEN    = "squ_8a380c0d68321708030eff61650223efd226f0d9"
     }
@@ -65,11 +65,12 @@ pipeline {
                         protocol: "http",
                         nexusUrl: "${NEXUS_URL}",
                         groupId: "koddas.web.war",
-                        artifactId: "wwp",
                         version: "${ART_VERSION}",
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
                         artifacts: [[
+                            artifactId: "wwp",
+                            classifier: "",
                             file: warFile,
                             type: "war"
                         ]]
