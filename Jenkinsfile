@@ -5,7 +5,7 @@ pipeline {
         TOMCAT_SERVER = "43.204.112.166"
         TOMCAT_USER   = "ubuntu"
 
-        NEXUS_URL = "3.109.203.221:8081"
+        NEXUS_URL = "172.31.3.179:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
 
