@@ -70,7 +70,6 @@ pipeline {
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
                         artifacts: [[
-                            artifactId: "wwp",
                             file: warFile,
                             type: "war"
                         ]]
@@ -108,7 +107,6 @@ pipeline {
                 }
             }
         }
-
     }
 
     post {
