@@ -2,10 +2,11 @@ pipeline {
     agent any
 
     environment {
-        TOMCAT_SERVER      = "65.0.107.25"
-        TOMCAT_USER        = "ubuntu"
-        NEXUS_URL          = "http://13.201.75.131:8081"
-        NEXUS_REPOSITORY   = "maven-releases"
+        TOMCAT_SERVER = "65.0.107.25"
+        TOMCAT_USER   = "ubuntu"
+
+        NEXUS_URL = "http://13.201.75.131:8081"
+        NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
 
         SONAR_HOST_URL = "http://15.206.195.36:9000"
@@ -51,21 +52,25 @@ pipeline {
         stage('Publish to Nexus') {
             steps {
                 script {
-                    def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
+                    def warFile = sh(
+                        script: 'find target -name "*.war" -print -quit',
+                        returnStdout: true
+                    ).trim()
+
+                    // Fix double http issue
+                    def nexusBaseUrl = "${NEXUS_URL}".replaceAll("/$", "").replaceAll("^http://http://", "http://")
 
                     nexusArtifactUploader(
                         nexusVersion: "nexus3",
                         protocol: "http",
-                        nexusUrl: "${NEXUS_URL}",
+                        nexusUrl: nexusBaseUrl,
                         groupId: "koddas.web.war",
-                        artifactId: "wwp",
+                        artifactId: "wwp",          // must be set explicitly
                         version: "${ART_VERSION}",
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
-                        artifacts: [[
-                            file: warFile,
-                            type: "war"
-                        ]]
+                        type: "war",
+                        file: warFile
                     )
                 }
             }
@@ -75,7 +80,10 @@ pipeline {
             steps {
                 sshagent(['tomcat_ssh_key']) {
                     script {
-                        def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
+                        def warFile = sh(
+                            script: 'find target -name "*.war" -print -quit',
+                            returnStdout: true
+                        ).trim()
 
                         sh """
                             scp -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
