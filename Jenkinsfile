@@ -36,7 +36,7 @@ pipeline {
                       -Dsonar.projectKey=wwp \
                       -Dsonar.projectName=wwp \
                       -Dsonar.host.url=${SONAR_HOST_URL} \
-                      -Dsonar.login=${SONAR_TOKEN} \
+                      -Dsonar.token=${SONAR_TOKEN} \
                       -Dsonar.java.binaries=target/classes
                 """
             }
