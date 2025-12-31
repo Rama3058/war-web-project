@@ -9,8 +9,6 @@ pipeline {
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
 
-        SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
-
         // TEMP – Hard-coded SonarQube details
         SONAR_HOST_URL = "http://15.206.195.36:9000"
         SONAR_TOKEN    = "squ_8a380c0d68321708030eff61650223efd226f0d9"
@@ -65,12 +63,11 @@ pipeline {
                         protocol: "http",
                         nexusUrl: "${NEXUS_URL}",
                         groupId: "koddas.web.war",
+                        artifactId: "wwp",
                         version: "${ART_VERSION}",
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
                         artifacts: [[
-                            artifactId: "wwp",
-                            classifier: "",
                             file: warFile,
                             type: "war"
                         ]]
@@ -87,15 +84,16 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    sh """
-                        scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no \
-                            ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
-
-                        ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no \
-                            ${TOMCAT_USER}@${TOMCAT_SERVER} '
-                            sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
-                            sudo systemctl restart tomcat'
-                    """
+                    // Use Jenkins SSH credentials
+                    sshagent(['tomcat_ssh_key']) {
+                        sh """
+                            scp -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
+                            
+                            ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} '
+                                sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
+                                sudo systemctl restart tomcat'
+                        """
+                    }
                 }
             }
         }
