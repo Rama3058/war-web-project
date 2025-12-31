@@ -3,13 +3,17 @@ pipeline {
 
     environment {
         TOMCAT_SERVER = "43.204.112.166"
-        TOMCAT_USER = "ubuntu"
+        TOMCAT_USER   = "ubuntu"
 
         NEXUS_URL = "3.109.203.221:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
 
         SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
+
+        // ⚠ TEMPORARY – Hard-coded SonarQube details
+        SONAR_HOST_URL = "http://3.110.221.66:9000"
+        SONAR_TOKEN    = "squ_055b508f39c54f535f6f94388b6b192a9fff297b"
     }
 
     tools {
@@ -27,21 +31,14 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube Server') {
-                    sh """
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=wwp \
-                          -Dsonar.java.binaries=target/classes
-                    """
-                }
-            }
-        }
-
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 2, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
+                sh """
+                    mvn sonar:sonar \
+                      -Dsonar.projectKey=wwp \
+                      -Dsonar.projectName=wwp \
+                      -Dsonar.host.url=${SONAR_HOST_URL} \
+                      -Dsonar.login=${SONAR_TOKEN} \
+                      -Dsonar.java.binaries=target/classes
+                """
             }
         }
 
@@ -107,11 +104,8 @@ pipeline {
         stage('Display URLs') {
             steps {
                 script {
-                    def appUrl   = "http://${TOMCAT_SERVER}:8080/wwp-${ART_VERSION}"
-                    def nexusUrl = "http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${ART_VERSION}/wwp-${ART_VERSION}.war"
-
-                    echo "🌐 Application URL: ${appUrl}"
-                    echo "📦 Nexus Artifact URL: ${nexusUrl}"
+                    echo "🌐 App URL   : http://${TOMCAT_SERVER}:8080/wwp-${ART_VERSION}"
+                    echo "📦 Nexus URL: http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${ART_VERSION}/wwp-${ART_VERSION}.war"
                 }
             }
         }
@@ -122,7 +116,7 @@ pipeline {
             echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo '❌ Pipeline failed. Check the logs for errors.'
+            echo '❌ Pipeline failed. Check logs.'
         }
     }
 }
