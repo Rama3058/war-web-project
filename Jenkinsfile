@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        TOMCAT_SERVER = "43.204.112.166"
+        TOMCAT_SERVER = "65.0.107.25"
         TOMCAT_USER   = "ubuntu"
 
         NEXUS_URL = "172.31.3.179:8081"
