@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     environment {
-        NEXUS_URL = "172.31.3.179:8081"          // Your Nexus server (private IP)
-        NEXUS_REPOSITORY = "maven-releases"      // Nexus repository name
-        NEXUS_CREDENTIAL_ID = "nexus_creds"      // Jenkins-stored credentials ID
+        NEXUS_URL = "http://13.201.75.131:8081"   // Public IP of Nexus
+        NEXUS_REPOSITORY = "maven-releases"
+        NEXUS_CREDENTIAL_ID = "nexus_creds"
     }
 
     tools {
-        maven "maven"                             // Maven installation name in Jenkins
+        maven "maven"
     }
 
     stages {
@@ -42,8 +42,8 @@ pipeline {
 
                     echo "📦 Uploading WAR: ${warFile} to Nexus..."
 
-                    // Clean Nexus URL to avoid double 'http://'
-                    def nexusBaseUrl = NEXUS_URL.replaceAll('^http://', '').replaceAll('/$', '')
+                    // Remove trailing slash if present
+                    def nexusBaseUrl = NEXUS_URL.replaceAll('/$', '')
 
                     nexusArtifactUploader(
                         nexusVersion: "nexus3",
@@ -59,7 +59,7 @@ pipeline {
                         allowOverwrite: true
                     )
 
-                    echo "✅ Successfully uploaded: http://${nexusBaseUrl}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${env.ART_VERSION}/wwp-${env.ART_VERSION}.war"
+                    echo "✅ Successfully uploaded: ${nexusBaseUrl}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${env.ART_VERSION}/wwp-${env.ART_VERSION}.war"
                 }
             }
         }
