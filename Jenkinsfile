@@ -57,21 +57,25 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    // Fix double http issue
-                    def nexusBaseUrl = "${NEXUS_URL}".replaceAll("/$", "").replaceAll("^http://http://", "http://")
+                    // Fix Groovy $ issue in regex
+                    def nexusBaseUrl = NEXUS_URL.replaceAll('/\$', '')
 
+                    // Upload WAR to Nexus
                     nexusArtifactUploader(
                         nexusVersion: "nexus3",
                         protocol: "http",
                         nexusUrl: nexusBaseUrl,
                         groupId: "koddas.web.war",
-                        artifactId: "wwp",          // must be set explicitly
+                        artifactId: "wwp",
                         version: "${ART_VERSION}",
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
                         type: "war",
-                        file: warFile
+                        file: warFile,
+                        allowOverwrite: true
                     )
+
+                    echo "📦 WAR uploaded to Nexus successfully: ${nexusBaseUrl}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${ART_VERSION}/wwp-${ART_VERSION}.war"
                 }
             }
         }
