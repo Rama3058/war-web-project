@@ -13,7 +13,7 @@ pipeline {
 
         // ⚠ TEMPORARY – Hard-coded SonarQube details
         SONAR_HOST_URL = "http://3.110.221.66:9000"
-        SONAR_TOKEN    = "squ_055b508f39c54f535f6f94388b6b192a9fff297b"
+        SONAR_TOKEN    = "squ_6485884a473d573514570d2b8e7d7203099c569e"
     }
 
     tools {
