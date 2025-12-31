@@ -5,7 +5,7 @@ pipeline {
         TOMCAT_SERVER = "65.0.107.25"
         TOMCAT_USER   = "ubuntu"
 
-        NEXUS_URL = "172.31.3.179:8081"
+        NEXUS_URL = "http://13.201.75.131:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
 
@@ -78,20 +78,19 @@ pipeline {
 
         stage('Deploy to Tomcat') {
             steps {
-                script {
-                    def warFile = sh(
-                        script: 'find target -name "*.war" -print -quit',
-                        returnStdout: true
-                    ).trim()
+                sshagent(['tomcat_ssh_key']) {
+                    script {
+                        def warFile = sh(
+                            script: 'find target -name "*.war" -print -quit',
+                            returnStdout: true
+                        ).trim()
 
-                    // Use Jenkins SSH credentials
-                    sshagent(['tomcat_ssh_key']) {
                         sh """
                             scp -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
-                            
                             ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} '
                                 sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
-                                sudo systemctl restart tomcat'
+                                sudo systemctl restart tomcat
+                            '
                         """
                     }
                 }
@@ -102,7 +101,7 @@ pipeline {
             steps {
                 script {
                     echo "🌐 App URL   : http://${TOMCAT_SERVER}:8080/wwp-${ART_VERSION}"
-                    echo "📦 Nexus URL: http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${ART_VERSION}/wwp-${ART_VERSION}.war"
+                    echo "📦 Nexus URL: ${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${ART_VERSION}/wwp-${ART_VERSION}.war"
                 }
             }
         }
