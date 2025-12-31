@@ -12,8 +12,8 @@ pipeline {
         SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
 
         // ⚠ TEMPORARY – Hard-coded SonarQube details
-        SONAR_HOST_URL = "http://3.110.221.66:9000"
-        SONAR_TOKEN    = "squ_6485884a473d573514570d2b8e7d7203099c569e"
+        SONAR_HOST_URL = "http://15.206.195.36:9000"
+        SONAR_TOKEN    = "squ_8a380c0d68321708030eff61650223efd226f0d9"
     }
 
     tools {
@@ -34,7 +34,6 @@ pipeline {
                 sh """
                     mvn sonar:sonar \
                       -Dsonar.projectKey=wwp \
-                      -Dsonar.projectName=wwp \
                       -Dsonar.host.url=${SONAR_HOST_URL} \
                       -Dsonar.token=${SONAR_TOKEN} \
                       -Dsonar.java.binaries=target/classes
@@ -109,6 +108,7 @@ pipeline {
                 }
             }
         }
+
     }
 
     post {
