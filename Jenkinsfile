@@ -2,15 +2,14 @@ pipeline {
     agent any
     
     environment {
-        // Nexus Configuration
+        // --- Nexus Config ---
         NEXUS_URL = "15.207.55.128:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
         
-        // SonarQube Configuration
+        // --- SonarQube Config ---
         SONAR_HOST_URL = "http://13.126.135.101:9000"
-        // This is the ID of the Secret Text credential you created in Jenkins
-        SONAR_AUTH_TOKEN_ID = "sonar_token_cred" 
+        SONAR_CRED_ID = "SONAR_TOKEN" 
     }
     
     tools {
@@ -20,7 +19,7 @@ pipeline {
     stages {
         stage('Build WAR') {
             steps {
-                // Ensure we start clean
+                echo "🔨 Building WAR file..."
                 sh 'mvn clean package -DskipTests'
                 archiveArtifacts artifacts: 'target/*.war', allowEmptyArchive: false
             }
@@ -28,8 +27,9 @@ pipeline {
         
         stage('SonarQube Analysis') {
             steps {
-                // withCredentials safely masks the token in logs
-                withCredentials([string(credentialsId: "${SONAR_AUTH_TOKEN_ID}", variable: 'S_TOKEN')]) {
+                echo "🔍 Running Static Code Analysis..."
+                // Using your specific credential ID: SONAR_TOKEN
+                withCredentials([string(credentialsId: "${env.SONAR_CRED_ID}", variable: 'S_TOKEN')]) {
                     sh """
                         mvn sonar:sonar \
                         -Dsonar.projectKey=wwp \
@@ -44,12 +44,12 @@ pipeline {
         stage('Extract Version') {
             steps {
                 script {
-                    // Extract version from pom.xml
+                    // Pulls version from pom.xml dynamically
                     env.ART_VERSION = sh(
                         script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
                         returnStdout: true
                     ).trim()
-                    echo "🔖 Detected Version: ${env.ART_VERSION}"
+                    echo "🔖 Detected Project Version: ${env.ART_VERSION}"
                 }
             }
         }
@@ -57,10 +57,10 @@ pipeline {
         stage('Publish to Nexus') {
             steps {
                 script {
-                    // Locate the WAR file dynamically
-                    def warFile = sh(script: 'ls target/*.war', returnStdout: true).trim()
+                    // Dynamically find the path of the generated war file
+                    def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
                     
-                    echo "📦 Uploading to Nexus: ${warFile}"
+                    echo "🚀 Uploading to Nexus: ${warFile}"
                     nexusArtifactUploader(
                         nexusVersion: 'nexus3',
                         protocol: 'http',
@@ -85,11 +85,11 @@ pipeline {
     
     post {
         success {
-            echo '✅ Pipeline completed successfully!'
+            echo "✅ Success! Artifact uploaded to Nexus."
             echo "URL: http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${env.ART_VERSION}/"
         }
         failure {
-            echo '❌ Pipeline failed. Please check the stage logs above.'
+            echo "❌ Pipeline failed. Check the stage logs above for details."
         }
     }
 }
