@@ -22,7 +22,7 @@ pipeline {
             steps {
                 echo "🔨 Building WAR..."
                 sh 'mvn clean package -DskipTests'
-                archiveArtifacts artifacts: 'target/*.war', allowEmptyArchive: false
+                archiveArtifacts artifacts: 'target/*.war'
             }
         }
 
@@ -69,7 +69,7 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "🚀 Uploading WAR to Nexus..."
+                    echo "🚀 Uploading to Nexus..."
 
                     nexusArtifactUploader(
                         nexusVersion: 'nexus3',
@@ -96,7 +96,7 @@ pipeline {
             echo "📦 Nexus: http://15.207.55.128:8081"
         }
         failure {
-            echo "❌ Pipeline failed — check logs carefully"
+            echo "❌ Pipeline failed — check logs"
         }
     }
 }
