@@ -13,7 +13,7 @@ pipeline {
     }
 
     tools {
-        maven "maven"
+        maven "m3"
     }
 
     stages {
