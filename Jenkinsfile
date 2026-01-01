@@ -2,9 +2,14 @@ pipeline {
     agent any
 
     environment {
-        NEXUS_URL = "http://13.201.75.131:8081"   // Public IP of Nexus
+        // Nexus
+        NEXUS_URL = "15.207.55.128:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
+
+        // SonarQube
+        SONAR_HOST_URL = "http://13.126.135.101:9000"
+        SONAR_TOKEN = "squ_XXXXXXXXXXXXXXXXXXXXXXXXXXXX"  // keep as-is if already working
     }
 
     tools {
@@ -20,6 +25,18 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                sh """
+                    mvn sonar:sonar \
+                    -Dsonar.projectKey=wwp \
+                    -Dsonar.host.url=${SONAR_HOST_URL} \
+                    -Dsonar.token=${SONAR_TOKEN} \
+                    -Dsonar.java.binaries=target/classes
+                """
+            }
+        }
+
         stage('Extract Version') {
             steps {
                 script {
@@ -27,7 +44,7 @@ pipeline {
                         script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
                         returnStdout: true
                     ).trim()
-                    echo "🔖 Artifact version: ${env.ART_VERSION}"
+                    echo "🔖 Artifact Version: ${env.ART_VERSION}"
                 }
             }
         }
@@ -40,38 +57,38 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "📦 Uploading WAR: ${warFile} to Nexus..."
-
-                    // Remove trailing slash if present
-                    def nexusBaseUrl = NEXUS_URL.replaceAll('/$', '')
+                    echo "📦 Uploading ${warFile} to Nexus"
 
                     nexusArtifactUploader(
-                        nexusVersion: "nexus3",
-                        protocol: "http",
-                        nexusUrl: nexusBaseUrl,
-                        groupId: "koddas.web.war",
-                        artifactId: "wwp",
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        nexusUrl: "${NEXUS_URL}",
+                        groupId: 'koddas.web.war',
                         version: "${env.ART_VERSION}",
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
-                        type: "war",
-                        file: warFile,
-                        allowOverwrite: true
+                        artifacts: [
+                            [
+                                artifactId: 'wwp',
+                                classifier: '',
+                                file: warFile,
+                                type: 'war'
+                            ]
+                        ]
                     )
-
-                    echo "✅ Successfully uploaded: ${nexusBaseUrl}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${env.ART_VERSION}/wwp-${env.ART_VERSION}.war"
                 }
             }
         }
-
     }
 
     post {
         success {
-            echo '🎉 Nexus upload pipeline completed successfully!'
+            echo '✅ Pipeline completed successfully!'
+            echo "📦 Nexus Artifact:"
+            echo "http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${env.ART_VERSION}/wwp-${env.ART_VERSION}.war"
         }
         failure {
-            echo '❌ Nexus upload pipeline failed. Check logs.'
+            echo '❌ Pipeline failed. Check Jenkins logs.'
         }
     }
 }
