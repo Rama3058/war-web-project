@@ -2,17 +2,19 @@ pipeline {
     agent any
 
     environment {
-        // -------- Git --------
-        GIT_REPO_URL = "https://github.com/mchetan-aradhya/war-web-project.git"
-
         // -------- SonarQube --------
         SONAR_HOST_URL = "http://13.126.135.101:9000"
-        SONAR_CREDENTIAL_ID = "sonar_creds"   // Jenkins Secret Text (Sonar Token)
+        SONAR_CREDENTIAL_ID = "SONAR_TOKEN"
 
         // -------- Nexus --------
         NEXUS_URL = "15.207.55.128:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
+
+        // -------- Tomcat --------
+        TOMCAT_SERVER = "43.204.112.166"
+        TOMCAT_USER = "ubuntu"
+        SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
     }
 
     tools {
@@ -23,7 +25,7 @@ pipeline {
 
         stage('Build WAR') {
             steps {
-                echo "🔨 Building WAR file..."
+                echo "🔨 Building WAR..."
                 sh 'mvn clean package -DskipTests'
                 archiveArtifacts artifacts: 'target/*.war', allowEmptyArchive: false
             }
@@ -34,7 +36,7 @@ pipeline {
                 echo "🔍 Running SonarQube analysis..."
 
                 withCredentials([
-                    string(credentialsId: "${SONAR_CREDENTIAL_ID}", variable: 'SONAR_TOKEN')
+                    string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')
                 ]) {
                     sh """
                         mvn sonar:sonar \
@@ -54,7 +56,7 @@ pipeline {
                         script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
                         returnStdout: true
                     ).trim()
-                    echo "🔖 Project Version: ${env.ART_VERSION}"
+                    echo "📦 Version: ${ART_VERSION}"
                 }
             }
         }
@@ -67,23 +69,42 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "📦 Uploading WAR to Nexus..."
+                    echo "🚀 Uploading WAR to Nexus..."
 
                     nexusArtifactUploader(
-                        nexusVersion: "nexus3",
-                        protocol: "http",
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
                         nexusUrl: "${NEXUS_URL}",
+                        groupId: 'koddas.web.war',
+                        artifactId: 'wwp',
+                        version: "${ART_VERSION}",
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
-                        groupId: "koddas.web.war",
-                        version: "${env.ART_VERSION}",
-                        artifacts: [[
-                            artifactId: "wwp",
-                            classifier: "",
-                            file: warFile,
-                            type: "war"
-                        ]]
+                        artifacts: [
+                            [artifactId: 'wwp', file: warFile, type: 'war']
+                        ]
                     )
+                }
+            }
+        }
+
+        stage('Deploy to Tomcat') {
+            steps {
+                script {
+                    def warFile = sh(
+                        script: 'find target -name "*.war" -print -quit',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "🚀 Deploying to Tomcat..."
+
+                    sh """
+                        scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
+                        ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} '
+                            sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
+                            sudo systemctl restart tomcat
+                        '
+                    """
                 }
             }
         }
@@ -91,17 +112,13 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline completed successfully!"
-
-            echo "🔍 Sonar Dashboard:"
-            echo "http://13.126.135.101:9000/dashboard?id=wwp"
-
-            echo "📦 Nexus Artifact:"
-            echo "http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/koddas/web/war/wwp/${env.ART_VERSION}/wwp-${env.ART_VERSION}.war"
+            echo "✅ Pipeline completed successfully"
+            echo "🔗 Sonar: http://13.126.135.101:9000"
+            echo "📦 Nexus: http://15.207.55.128:8081"
+            echo "🌐 App: http://${TOMCAT_SERVER}:8080/wwp"
         }
-
         failure {
-            echo "❌ Pipeline failed. Check Sonar/Nexus logs."
+            echo "❌ Pipeline failed — check logs"
         }
     }
 }
