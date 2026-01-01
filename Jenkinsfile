@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     environment {
-        // ---------- SonarQube ----------
+        // -------- SonarQube --------
         SONAR_HOST_URL = "http://13.126.135.101:9000"
-        SONAR_CREDENTIAL_ID = "sonar_creds"
 
-        // ---------- Nexus ----------
+        // -------- Nexus --------
         NEXUS_URL = "15.207.55.128:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
@@ -17,6 +16,12 @@ pipeline {
     }
 
     stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
 
         stage('Build WAR') {
             steps {
@@ -34,17 +39,16 @@ pipeline {
                     usernamePassword(
                         credentialsId: 'sonar_creds',
                         usernameVariable: 'SONAR_USER',
-                        passwordVariable: 'SONAR_PASS'
+                        passwordVariable: 'SONAR_TOKEN'
                     )
                 ]) {
-                    sh """
+                    sh '''
                         mvn sonar:sonar \
                         -Dsonar.projectKey=wwp \
                         -Dsonar.host.url=${SONAR_HOST_URL} \
-                        -Dsonar.login=${SONAR_USER} \
-                        -Dsonar.password=${SONAR_PASS} \
+                        -Dsonar.token=${SONAR_TOKEN} \
                         -Dsonar.java.binaries=target/classes
-                    """
+                    '''
                 }
             }
         }
@@ -56,7 +60,7 @@ pipeline {
                         script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
                         returnStdout: true
                     ).trim()
-                    echo "📦 Version: ${ART_VERSION}"
+                    echo "📦 Artifact Version: ${ART_VERSION}"
                 }
             }
         }
@@ -69,12 +73,12 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "🚀 Uploading to Nexus..."
+                    echo "🚀 Uploading WAR to Nexus..."
 
                     nexusArtifactUploader(
                         nexusVersion: 'nexus3',
                         protocol: 'http',
-                        nexusUrl: "${NEXUS_URL}",
+                        nexusUrl: "15.207.55.128:8081",
                         groupId: 'koddas.web.war',
                         artifactId: 'wwp',
                         version: "${ART_VERSION}",
@@ -92,7 +96,7 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline completed successfully"
-            echo "🔗 SonarQube: http://13.126.135.101:9000"
+            echo "🔗 SonarQube Dashboard: http://13.126.135.101:9000/dashboard?id=wwp"
             echo "📦 Nexus: http://15.207.55.128:8081"
         }
         failure {
