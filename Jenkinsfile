@@ -9,7 +9,7 @@ pipeline {
 
         // SonarQube
         SONAR_HOST_URL = "http://13.126.135.101:9000"
-        SONAR_TOKEN = "squ_XXXXXXXXXXXXXXXXXXXXXXXXXXXX"  // keep as-is if already working
+        SONAR_TOKEN = "SONAR_TOKEN"  // keep as-is if already working
     }
 
     tools {
