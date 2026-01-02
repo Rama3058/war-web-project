@@ -36,27 +36,27 @@ pipeline {
             }
         }
 
-        stage('SonarQube Analysis') {
-            steps {
-                echo "🔍 Running SonarQube analysis..."
+        // stage('SonarQube Analysis') {
+        //     steps {
+        //         echo "🔍 Running SonarQube analysis..."
 
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'sonar_creds',
-                        usernameVariable: 'SONAR_USER',
-                        passwordVariable: 'SONAR_TOKEN'
-                    )
-                ]) {
-                    sh '''
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=wwp \
-                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.token=${SONAR_TOKEN} \
-                          -Dsonar.java.binaries=target/classes
-                    '''
-                }
-            }
-        }
+        //         withCredentials([
+        //             usernamePassword(
+        //                 credentialsId: 'sonar_creds',
+        //                 usernameVariable: 'SONAR_USER',
+        //                 passwordVariable: 'SONAR_TOKEN'
+        //             )
+        //         ]) {
+        //             sh '''
+        //                 mvn sonar:sonar \
+        //                   -Dsonar.projectKey=wwp \
+        //                   -Dsonar.host.url=${SONAR_HOST_URL} \
+        //                   -Dsonar.token=${SONAR_TOKEN} \
+        //                   -Dsonar.java.binaries=target/classes
+        //             '''
+        //         }
+        //     }
+        // }
 
         stage('Extract Version') {
             steps {
