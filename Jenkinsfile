@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'maven'
-    }
-
     environment {
         // -------- SonarQube --------
         SONAR_HOST_URL = "http://13.126.135.101:9000"
@@ -16,7 +12,12 @@ pipeline {
 
         // -------- Tomcat --------
         TOMCAT_SERVER = "43.204.235.239"
-        TOMCAT_USER = "ubuntu"
+        TOMCAT_USER   = "ubuntu"
+        TOMCAT_WEBAPPS = "/opt/tomcat/webapps"
+    }
+
+    tools {
+        maven "maven"
     }
 
     stages {
@@ -43,15 +44,14 @@ pipeline {
                     usernamePassword(
                         credentialsId: 'sonar_creds',
                         usernameVariable: 'SONAR_USER',
-                        passwordVariable: 'SONAR_PASS'
+                        passwordVariable: 'SONAR_TOKEN'
                     )
                 ]) {
                     sh '''
                         mvn sonar:sonar \
                           -Dsonar.projectKey=wwp \
                           -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.login=${SONAR_USER} \
-                          -Dsonar.password=${SONAR_PASS} \
+                          -Dsonar.token=${SONAR_TOKEN} \
                           -Dsonar.java.binaries=target/classes
                     '''
                 }
@@ -65,7 +65,6 @@ pipeline {
                         script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
                         returnStdout: true
                     ).trim()
-
                     echo "📦 Artifact Version: ${ART_VERSION}"
                 }
             }
@@ -79,10 +78,7 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    def releaseVersion = "${ART_VERSION}-${BUILD_NUMBER}"
-
-                    echo "🚀 Uploading WAR to Nexus"
-                    echo "📦 Version: ${releaseVersion}"
+                    echo "🚀 Uploading WAR to Nexus..."
 
                     nexusArtifactUploader(
                         nexusVersion: 'nexus3',
@@ -91,14 +87,10 @@ pipeline {
                         repository: "${NEXUS_REPOSITORY}",
                         credentialsId: "${NEXUS_CREDENTIAL_ID}",
                         groupId: 'koddas.web.war',
-                        version: releaseVersion,
+                        artifactId: 'wwp',
+                        version: "${ART_VERSION}",
                         artifacts: [
-                            [
-                                artifactId: 'wwp',
-                                classifier: '',
-                                file: warFile,
-                                type: 'war'
-                            ]
+                            [artifactId: 'wwp', file: warFile, type: 'war']
                         ]
                     )
                 }
@@ -107,23 +99,21 @@ pipeline {
 
         stage('Deploy to Tomcat') {
             steps {
-                script {
-                    echo "🚀 Deploying WAR to Tomcat..."
+                echo "🚀 Deploying to Tomcat..."
 
-                    def warFile = sh(
-                        script: "find target -name '*.war' -print -quit",
-                        returnStdout: true
-                    ).trim()
+                sshagent(credentials: ['tomcat_ssh_key']) {
+                    sh '''
+                        WAR_FILE=$(ls target/*.war)
 
-                    sshagent(credentials: ['tomcat_ssh_key']) {
-                        sh """
-                            scp -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
-                            ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} '
-                                sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
-                                sudo systemctl restart tomcat
-                            '
-                        """
-                    }
+                        scp -o StrictHostKeyChecking=no $WAR_FILE ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
+
+                        ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} << EOF
+                          sudo systemctl stop tomcat || true
+                          sudo rm -rf ${TOMCAT_WEBAPPS}/*.war ${TOMCAT_WEBAPPS}/*
+                          sudo mv /tmp/*.war ${TOMCAT_WEBAPPS}/
+                          sudo systemctl start tomcat
+                        EOF
+                    '''
                 }
             }
         }
@@ -132,16 +122,12 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline completed successfully"
-            echo "🔗 SonarQube Dashboard: ${SONAR_HOST_URL}/dashboard?id=wwp"
-            echo "📦 Nexus Repository: http://${NEXUS_URL}"
+            echo "🔗 SonarQube: ${SONAR_HOST_URL}/dashboard?id=wwp"
+            echo "📦 Nexus: http://${NEXUS_URL}"
+            echo "🌐 App URL: http://${TOMCAT_SERVER}:8080/wwp"
         }
-
         failure {
             echo "❌ Pipeline failed — check logs"
-        }
-
-        always {
-            echo "🧹 Pipeline execution finished"
         }
     }
 }
