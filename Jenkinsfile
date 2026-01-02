@@ -9,7 +9,8 @@ pipeline {
         NEXUS_URL = "15.207.55.128:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
-        // ---- Server & Credentials ----
+
+        // -------- Tomcat --------
         TOMCAT_SERVER = "43.204.235.239"
         TOMCAT_USER = "ubuntu"
         SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
@@ -69,8 +70,7 @@ pipeline {
             }
         }
 
-        
- stage('Publish to Nexus') {
+        stage('Publish to Nexus') {
             steps {
                 script {
                     def warFile = sh(
@@ -78,7 +78,6 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    // Ensure unique version for release repository
                     def releaseVersion = "${ART_VERSION}-${BUILD_NUMBER}"
 
                     echo "🚀 Uploading WAR to Nexus"
@@ -105,12 +104,16 @@ pipeline {
                 }
             }
         }
-    }
-stage('Deploy to Tomcat') {
+
+        stage('Deploy to Tomcat') {
             steps {
                 script {
                     echo "🚀 Deploying WAR to Tomcat server..."
-                    def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
+
+                    def warFile = sh(
+                        script: 'find target -name "*.war" -print -quit',
+                        returnStdout: true
+                    ).trim()
 
                     sh """
                         scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
@@ -122,7 +125,8 @@ stage('Deploy to Tomcat') {
                 }
             }
         }
-    
+    }
+
     post {
         success {
             echo "✅ Pipeline completed successfully"
