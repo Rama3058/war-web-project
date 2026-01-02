@@ -1,17 +1,11 @@
 pipeline {
     agent any
 
-    options {
-        // Prevent concurrent Sonar scans on same job
-        disableConcurrentBuilds()
-        timestamps()
-    }
-
     environment {
-        // ---------- SonarQube ----------
+        // -------- SonarQube --------
         SONAR_HOST_URL = "http://13.126.135.101:9000"
 
-        // ---------- Nexus ----------
+        // -------- Nexus --------
         NEXUS_URL = "15.207.55.128:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
@@ -25,7 +19,6 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "📥 Checking out source code..."
                 checkout scm
             }
         }
@@ -34,13 +27,13 @@ pipeline {
             steps {
                 echo "🔨 Building WAR..."
                 sh 'mvn clean package -DskipTests'
-                archiveArtifacts artifacts: 'target/*.war', fingerprint: true
+                archiveArtifacts artifacts: 'target/*.war'
             }
         }
 
         stage('SonarQube Analysis') {
             steps {
-                echo "🔍 Running SonarQube analysis (Java only)..."
+                echo "🔍 Running SonarQube analysis..."
 
                 withCredentials([
                     usernamePassword(
@@ -49,15 +42,13 @@ pipeline {
                         passwordVariable: 'SONAR_TOKEN'
                     )
                 ]) {
-                    sh """
+                    sh '''
                         mvn sonar:sonar \
                         -Dsonar.projectKey=wwp \
                         -Dsonar.host.url=${SONAR_HOST_URL} \
                         -Dsonar.token=${SONAR_TOKEN} \
-                        -Dsonar.java.binaries=target/classes \
-                        -Dsonar.javascript.enabled=false \
-                        -Dsonar.css.enabled=false
-                    """
+                        -Dsonar.java.binaries=target/classes
+                    '''
                 }
             }
         }
@@ -69,13 +60,13 @@ pipeline {
                         script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
                         returnStdout: true
                     ).trim()
-
-                    echo "📦 POM Version: ${ART_VERSION}"
+                    echo "📦 Artifact Version: ${ART_VERSION}"
                 }
             }
         }
 
-        stage('Publish to Nexus') {
+        
+ stage('Publish to Nexus') {
             steps {
                 script {
                     def warFile = sh(
