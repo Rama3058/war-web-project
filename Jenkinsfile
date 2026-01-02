@@ -11,8 +11,8 @@ pipeline {
         NEXUS_CREDENTIAL_ID = "nexus_creds"
 
         // -------- Tomcat --------
-        TOMCAT_SERVER = "43.204.235.239"
-        TOMCAT_USER   = "ubuntu"
+        TOMCAT_SERVER  = "43.204.235.239"
+        TOMCAT_USER    = "ubuntu"
         TOMCAT_WEBAPPS = "/opt/tomcat/webapps"
     }
 
@@ -36,27 +36,32 @@ pipeline {
             }
         }
 
-        // stage('SonarQube Analysis') {
-        //     steps {
-        //         echo "🔍 Running SonarQube analysis..."
+        // -------------------------------
+        //  🔕 SonarQube temporarily disabled
+        // -------------------------------
+        /*
+        stage('SonarQube Analysis') {
+            steps {
+                echo "🔍 Running SonarQube analysis..."
 
-        //         withCredentials([
-        //             usernamePassword(
-        //                 credentialsId: 'sonar_creds',
-        //                 usernameVariable: 'SONAR_USER',
-        //                 passwordVariable: 'SONAR_TOKEN'
-        //             )
-        //         ]) {
-        //             sh '''
-        //                 mvn sonar:sonar \
-        //                   -Dsonar.projectKey=wwp \
-        //                   -Dsonar.host.url=${SONAR_HOST_URL} \
-        //                   -Dsonar.token=${SONAR_TOKEN} \
-        //                   -Dsonar.java.binaries=target/classes
-        //             '''
-        //         }
-        //     }
-        // }
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'sonar_creds',
+                        usernameVariable: 'SONAR_USER',
+                        passwordVariable: 'SONAR_TOKEN'
+                    )
+                ]) {
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=wwp \
+                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                          -Dsonar.token=${SONAR_TOKEN} \
+                          -Dsonar.java.binaries=target/classes
+                    """
+                }
+            }
+        }
+        */
 
         stage('Extract Version') {
             steps {
@@ -70,50 +75,61 @@ pipeline {
             }
         }
 
-        // stage('Publish to Nexus') {
-        //     steps {
-        //         script {
-        //             def warFile = sh(
-        //                 script: "find target -name '*.war' -print -quit",
-        //                 returnStdout: true
-        //             ).trim()
+        // -------------------------------
+        //  🔕 Nexus upload temporarily disabled
+        // -------------------------------
+        /*
+        stage('Publish to Nexus') {
+            steps {
+                script {
+                    def warFile = sh(
+                        script: "find target -name '*.war' -print -quit",
+                        returnStdout: true
+                    ).trim()
 
-        //             echo "🚀 Uploading WAR to Nexus..."
+                    echo "🚀 Uploading WAR to Nexus..."
 
-        //             nexusArtifactUploader(
-        //                 nexusVersion: 'nexus3',
-        //                 protocol: 'http',
-        //                 nexusUrl: "${NEXUS_URL}",
-        //                 repository: "${NEXUS_REPOSITORY}",
-        //                 credentialsId: "${NEXUS_CREDENTIAL_ID}",
-        //                 groupId: 'koddas.web.war',
-        //                 artifactId: 'wwp',
-        //                 version: "${ART_VERSION}",
-        //                 artifacts: [
-        //                     [artifactId: 'wwp', file: warFile, type: 'war']
-        //                 ]
-        //             )
-        //         }
-        //     }
-        // }
+                    nexusArtifactUploader(
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        nexusUrl: "${NEXUS_URL}",
+                        repository: "${NEXUS_REPOSITORY}",
+                        credentialsId: "${NEXUS_CREDENTIAL_ID}",
+                        groupId: 'koddas.web.war',
+                        artifactId: 'wwp',
+                        version: "${ART_VERSION}",
+                        artifacts: [
+                            [artifactId: 'wwp', file: warFile, type: 'war']
+                        ]
+                    )
+                }
+            }
+        }
+        */
 
         stage('Deploy to Tomcat') {
             steps {
                 echo "🚀 Deploying to Tomcat..."
 
                 sshagent(credentials: ['tomcat_ssh_key']) {
-                    sh '''
-                        WAR_FILE=$(ls target/*.war)
+                    sh """
+                        set -e
 
-                        scp -o StrictHostKeyChecking=no $WAR_FILE ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
+                        WAR_FILE=\$(ls target/*.war)
 
+                        echo "📤 Copying WAR to server..."
+                        scp -o StrictHostKeyChecking=no "\$WAR_FILE" ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
+
+                        echo "🛠 Performing remote deployment..."
                         ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} << EOF
                           sudo systemctl stop tomcat || true
                           sudo rm -rf ${TOMCAT_WEBAPPS}/*.war ${TOMCAT_WEBAPPS}/*
                           sudo mv /tmp/*.war ${TOMCAT_WEBAPPS}/
                           sudo systemctl start tomcat
                         EOF
-                    '''
+
+                        echo "✅ Deployment completed"
+                    """
                 }
             }
         }
@@ -122,8 +138,6 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline completed successfully"
-            echo "🔗 SonarQube: ${SONAR_HOST_URL}/dashboard?id=wwp"
-            echo "📦 Nexus: http://${NEXUS_URL}"
             echo "🌐 App URL: http://${TOMCAT_SERVER}:8080/wwp"
         }
         failure {
