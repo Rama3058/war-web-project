@@ -39,7 +39,6 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo "🔍 Running SonarQube analysis..."
-
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'sonar_creds',
@@ -103,31 +102,26 @@ pipeline {
 
         stage('Deploy to Tomcat') {
             steps {
-                echo "🚀 Deploying WAR to Tomcat..."
+                echo "🚀 Deploying WAR to Tomcat via SSH..."
+                sshagent(credentials: ['tomcat_ssh_key']) {
+                    sh """
+                        WAR_FILE=\$(find target -name '*.war' -print -quit)
 
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: "${TOMCAT_CREDENTIAL_ID}",
-                        usernameVariable: 'TOMCAT_USER',
-                        passwordVariable: 'TOMCAT_PASS'
-                    )
-                ]) {
-                    sh '''
-                        WAR_FILE=$(find target -name "*.war" -print -quit)
+                        echo "➡ Copying WAR to Tomcat server"
+                        scp -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@43.204.235.239:/tmp/wwp.war
 
-                        echo "➡ Undeploying existing app (if any)"
-                        curl -u $TOMCAT_USER:$TOMCAT_PASS \
-                        "$TOMCAT_URL/manager/text/undeploy?path=/$TOMCAT_CONTEXT" || true
-
-                        echo "➡ Deploying new WAR"
-                        curl -u $TOMCAT_USER:$TOMCAT_PASS \
-                        -T $WAR_FILE \
-                        "$TOMCAT_URL/manager/text/deploy?path=/$TOMCAT_CONTEXT&update=true"
-                    '''
+                        echo "➡ Deploying on Tomcat"
+                        ssh -o StrictHostKeyChecking=no ubuntu@43.204.235.239 '
+                            sudo rm -rf /opt/tomcat/webapps/wwp*
+                            sudo mv /tmp/wwp.war /opt/tomcat/webapps/
+                            sudo systemctl restart tomcat
+                        '
+                    """
                 }
             }
         }
-    }
+
+    } // end of stages
 
     post {
         success {
@@ -145,4 +139,4 @@ pipeline {
             echo "🧹 Pipeline execution finished"
         }
     }
-}
+} // end of pipeline
