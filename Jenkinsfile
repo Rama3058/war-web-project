@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    options {
+        // Prevent concurrent Sonar scans on same job
+        disableConcurrentBuilds()
+        timestamps()
+    }
+
     environment {
         // ---------- SonarQube ----------
         SONAR_HOST_URL = "http://13.126.135.101:9000"
@@ -26,7 +32,7 @@ pipeline {
 
         stage('Build WAR') {
             steps {
-                echo "🔨 Building WAR file..."
+                echo "🔨 Building WAR..."
                 sh 'mvn clean package -DskipTests'
                 archiveArtifacts artifacts: 'target/*.war', fingerprint: true
             }
@@ -34,7 +40,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                echo "🔍 Running SonarQube analysis..."
+                echo "🔍 Running SonarQube analysis (Java only)..."
 
                 withCredentials([
                     usernamePassword(
@@ -48,7 +54,9 @@ pipeline {
                         -Dsonar.projectKey=wwp \
                         -Dsonar.host.url=${SONAR_HOST_URL} \
                         -Dsonar.token=${SONAR_TOKEN} \
-                        -Dsonar.java.binaries=target/classes
+                        -Dsonar.java.binaries=target/classes \
+                        -Dsonar.javascript.enabled=false \
+                        -Dsonar.css.enabled=false
                     """
                 }
             }
@@ -75,7 +83,7 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    // Ensure unique version for release repo
+                    // Ensure unique version for release repository
                     def releaseVersion = "${ART_VERSION}-${BUILD_NUMBER}"
 
                     echo "🚀 Uploading WAR to Nexus"
@@ -107,12 +115,16 @@ pipeline {
     post {
         success {
             echo "✅ Pipeline completed successfully"
-            echo "🔗 SonarQube: ${SONAR_HOST_URL}/dashboard?id=wwp"
-            echo "📦 Nexus: http://${NEXUS_URL}"
+            echo "🔗 SonarQube Dashboard: ${SONAR_HOST_URL}/dashboard?id=wwp"
+            echo "📦 Nexus Repository: http://${NEXUS_URL}"
         }
 
         failure {
-            echo "❌ Pipeline failed — please check logs"
+            echo "❌ Pipeline failed — check logs for details"
+        }
+
+        always {
+            echo "🧹 Pipeline execution finished"
         }
     }
 }
