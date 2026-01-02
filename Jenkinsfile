@@ -9,6 +9,10 @@ pipeline {
         NEXUS_URL = "15.207.55.128:8081"
         NEXUS_REPOSITORY = "maven-releases"
         NEXUS_CREDENTIAL_ID = "nexus_creds"
+        // ---- Server & Credentials ----
+        TOMCAT_SERVER = "43.204.235.239"
+        TOMCAT_USER = "ubuntu"
+        SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
     }
 
     tools {
@@ -102,7 +106,23 @@ pipeline {
             }
         }
     }
+stage('Deploy to Tomcat') {
+            steps {
+                script {
+                    echo "🚀 Deploying WAR to Tomcat server..."
+                    def warFile = sh(script: 'find target -name "*.war" -print -quit', returnStdout: true).trim()
 
+                    sh """
+                        scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
+                        ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} '
+                            sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
+                            sudo systemctl restart tomcat
+                        '
+                    """
+                }
+            }
+        }
+    
     post {
         success {
             echo "✅ Pipeline completed successfully"
