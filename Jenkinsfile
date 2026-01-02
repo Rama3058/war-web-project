@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        maven 'maven'
+    }
+
     environment {
         // -------- SonarQube --------
         SONAR_HOST_URL = "http://13.126.135.101:9000"
@@ -13,11 +17,6 @@ pipeline {
         // -------- Tomcat --------
         TOMCAT_SERVER = "43.204.235.239"
         TOMCAT_USER = "ubuntu"
-        SSH_KEY_PATH = "/var/lib/jenkins/.ssh/jenkins_key"
-    }
-
-    tools {
-        maven "maven"
     }
 
     stages {
@@ -44,15 +43,16 @@ pipeline {
                     usernamePassword(
                         credentialsId: 'sonar_creds',
                         usernameVariable: 'SONAR_USER',
-                        passwordVariable: 'SONAR_TOKEN'
+                        passwordVariable: 'SONAR_PASS'
                     )
                 ]) {
                     sh '''
                         mvn sonar:sonar \
-                        -Dsonar.projectKey=wwp \
-                        -Dsonar.host.url=${SONAR_HOST_URL} \
-                        -Dsonar.token=${SONAR_TOKEN} \
-                        -Dsonar.java.binaries=target/classes
+                          -Dsonar.projectKey=wwp \
+                          -Dsonar.host.url=${SONAR_HOST_URL} \
+                          -Dsonar.login=${SONAR_USER} \
+                          -Dsonar.password=${SONAR_PASS} \
+                          -Dsonar.java.binaries=target/classes
                     '''
                 }
             }
@@ -65,6 +65,7 @@ pipeline {
                         script: "mvn help:evaluate -Dexpression=project.version -q -DforceStdout",
                         returnStdout: true
                     ).trim()
+
                     echo "📦 Artifact Version: ${ART_VERSION}"
                 }
             }
@@ -82,7 +83,6 @@ pipeline {
 
                     echo "🚀 Uploading WAR to Nexus"
                     echo "📦 Version: ${releaseVersion}"
-                    echo "📄 File: ${warFile}"
 
                     nexusArtifactUploader(
                         nexusVersion: 'nexus3',
@@ -108,20 +108,22 @@ pipeline {
         stage('Deploy to Tomcat') {
             steps {
                 script {
-                    echo "🚀 Deploying WAR to Tomcat server..."
+                    echo "🚀 Deploying WAR to Tomcat..."
 
                     def warFile = sh(
-                        script: 'find target -name "*.war" -print -quit',
+                        script: "find target -name '*.war' -print -quit",
                         returnStdout: true
                     ).trim()
 
-                    sh """
-                        scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
-                        ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} '
-                            sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
-                            sudo systemctl restart tomcat
-                        '
-                    """
+                    sshagent(credentials: ['tomcat_ssh_key']) {
+                        sh """
+                            scp -o StrictHostKeyChecking=no ${warFile} ${TOMCAT_USER}@${TOMCAT_SERVER}:/tmp/
+                            ssh -o StrictHostKeyChecking=no ${TOMCAT_USER}@${TOMCAT_SERVER} '
+                                sudo mv /tmp/*.war /opt/tomcat/webapps/ &&
+                                sudo systemctl restart tomcat
+                            '
+                        """
+                    }
                 }
             }
         }
@@ -135,7 +137,7 @@ pipeline {
         }
 
         failure {
-            echo "❌ Pipeline failed — check logs for details"
+            echo "❌ Pipeline failed — check logs"
         }
 
         always {
