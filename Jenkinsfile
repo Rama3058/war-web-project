@@ -12,8 +12,8 @@ pipeline {
 
         // -------- Tomcat --------
         TOMCAT_URL = "http://43.204.235.239:8080"
-        TOMCAT_CREDENTIAL_ID = "tomcat_creds"
         TOMCAT_CONTEXT = "wwp"
+        TOMCAT_CREDENTIAL_ID = "tomcat_ssh_key"
     }
 
     tools {
@@ -46,13 +46,13 @@ pipeline {
                         passwordVariable: 'SONAR_TOKEN'
                     )
                 ]) {
-                    sh '''
+                    sh """
                         mvn sonar:sonar \
                         -Dsonar.projectKey=wwp \
                         -Dsonar.host.url=${SONAR_HOST_URL} \
                         -Dsonar.token=${SONAR_TOKEN} \
                         -Dsonar.java.binaries=target/classes
-                    '''
+                    """
                 }
             }
         }
@@ -103,7 +103,7 @@ pipeline {
         stage('Deploy to Tomcat') {
             steps {
                 echo "🚀 Deploying WAR to Tomcat via SSH..."
-                sshagent(credentials: ['tomcat_ssh_key']) {
+                sshagent(credentials: [TOMCAT_CREDENTIAL_ID]) {
                     sh """
                         WAR_FILE=\$(find target -name '*.war' -print -quit)
 
@@ -121,7 +121,7 @@ pipeline {
             }
         }
 
-    } // end of stages
+    } // end stages
 
     post {
         success {
@@ -139,4 +139,4 @@ pipeline {
             echo "🧹 Pipeline execution finished"
         }
     }
-} // end of pipeline
+}
