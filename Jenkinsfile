@@ -64,36 +64,36 @@ pipeline {
             }
         }
 
-        stage('Publish to Nexus') {
-            steps {
-                script {
-                    def warFile = sh(
-                        script: "find target -name '*.war' -print -quit",
-                        returnStdout: true
-                    ).trim()
+        // stage('Publish to Nexus') {
+        //     steps {
+        //         script {
+        //             def warFile = sh(
+        //                 script: "find target -name '*.war' -print -quit",
+        //                 returnStdout: true
+        //             ).trim()
 
-                    def releaseVersion = "${ART_VERSION}-${BUILD_NUMBER}"
+        //             def releaseVersion = "${ART_VERSION}-${BUILD_NUMBER}"
 
-                    echo "🚀 Uploading WAR to Nexus"
+        //             echo "🚀 Uploading WAR to Nexus"
 
-                    nexusArtifactUploader(
-                        nexusVersion: 'nexus3',
-                        protocol: 'http',
-                        nexusUrl: NEXUS_URL,
-                        repository: NEXUS_REPOSITORY,
-                        credentialsId: NEXUS_CREDENTIAL_ID,
-                        groupId: 'koddas.web.war',
-                        version: releaseVersion,
-                        artifacts: [[
-                            artifactId: 'wwp',
-                            classifier: '',
-                            file: warFile,
-                            type: 'war'
-                        ]]
-                    )
-                }
-            }
-        }
+        //             nexusArtifactUploader(
+        //                 nexusVersion: 'nexus3',
+        //                 protocol: 'http',
+        //                 nexusUrl: NEXUS_URL,
+        //                 repository: NEXUS_REPOSITORY,
+        //                 credentialsId: NEXUS_CREDENTIAL_ID,
+        //                 groupId: 'koddas.web.war',
+        //                 version: releaseVersion,
+        //                 artifacts: [[
+        //                     artifactId: 'wwp',
+        //                     classifier: '',
+        //                     file: warFile,
+        //                     type: 'war'
+        //                 ]]
+        //             )
+        //         }
+        //     }
+        // }
 
         stage('Deploy to Tomcat') {
             steps {
