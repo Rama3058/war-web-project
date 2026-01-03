@@ -12,7 +12,6 @@ pipeline {
 
         // -------- Tomcat --------
         TOMCAT_URL = "http://13.203.74.89:8080"
-        TOMCAT_CREDENTIAL_ID = "tomcat_creds"
         TOMCAT_CONTEXT = "wwp"
     }
 
@@ -40,19 +39,15 @@ pipeline {
             steps {
                 echo "🔍 Running SonarQube analysis..."
                 withCredentials([
-                    usernamePassword(
-                        credentialsId: 'sonar_creds',
-                        usernameVariable: 'SONAR_USER',
-                        passwordVariable: 'SONAR_TOKEN'
-                    )
+                    string(credentialsId: 'sonar_token', variable: 'SONAR_TOKEN')
                 ]) {
-                    sh '''
+                    sh """
                         mvn sonar:sonar \
                         -Dsonar.projectKey=wwp \
                         -Dsonar.host.url=${SONAR_HOST_URL} \
                         -Dsonar.token=${SONAR_TOKEN} \
                         -Dsonar.java.binaries=target/classes
-                    '''
+                    """
                 }
             }
         }
@@ -84,9 +79,9 @@ pipeline {
                     nexusArtifactUploader(
                         nexusVersion: 'nexus3',
                         protocol: 'http',
-                        nexusUrl: "${NEXUS_URL}",
-                        repository: "${NEXUS_REPOSITORY}",
-                        credentialsId: "${NEXUS_CREDENTIAL_ID}",
+                        nexusUrl: NEXUS_URL,
+                        repository: NEXUS_REPOSITORY,
+                        credentialsId: NEXUS_CREDENTIAL_ID,
                         groupId: 'koddas.web.war',
                         version: releaseVersion,
                         artifacts: [[
@@ -102,16 +97,14 @@ pipeline {
 
         stage('Deploy to Tomcat') {
             steps {
-                echo "🚀 Deploying WAR to Tomcat via SSH..."
+                echo "🚀 Deploying WAR to Tomcat..."
                 sshagent(credentials: ['tomcat_ssh_key']) {
                     sh """
                         WAR_FILE=\$(find target -name '*.war' -print -quit)
 
-                        echo "➡ Copying WAR to Tomcat server"
-                        scp -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@43.204.235.239:/tmp/wwp.war
+                        scp -o StrictHostKeyChecking=no \$WAR_FILE ubuntu@13.203.74.89:/tmp/wwp.war
 
-                        echo "➡ Deploying on Tomcat"
-                        ssh -o StrictHostKeyChecking=no ubuntu@43.204.235.239 '
+                        ssh -o StrictHostKeyChecking=no ubuntu@13.203.74.89 '
                             sudo rm -rf /opt/tomcat/webapps/wwp*
                             sudo mv /tmp/wwp.war /opt/tomcat/webapps/
                             sudo systemctl restart tomcat
@@ -120,26 +113,22 @@ pipeline {
                 }
             }
         }
-
-    } // end of stages
+    }
 
     post {
         success {
             echo "✅ Pipeline completed successfully"
-            echo "🔗 SonarQube Dashboard: ${SONAR_HOST_URL}/dashboard?id=wwp"
-            echo "📦 Nexus Repository: http://${NEXUS_URL}"
-            echo "🌐 Application URL: ${TOMCAT_URL}/${TOMCAT_CONTEXT}"
+            echo "🔗 SonarQube: ${SONAR_HOST_URL}/dashboard?id=wwp"
+            echo "📦 Nexus: http://${NEXUS_URL}"
+            echo "🌐 App URL: ${TOMCAT_URL}/${TOMCAT_CONTEXT}"
         }
 
         failure {
-            echo "❌ Pipeline failed — check logs for details"
+            echo "❌ Pipeline failed — check logs"
         }
 
         always {
             echo "🧹 Pipeline execution finished"
         }
     }
-} // end of pipeline
-
-
-pls use this jenkinsfiles Venkatesh
+}
