@@ -1,0 +1,12 @@
+---
+- name: Install git on server
+  hosts: localhost
+  become: yes
+
+
+  tasks:
+     - name : Install git
+       yum:
+         - name: git
+           state: present
+
