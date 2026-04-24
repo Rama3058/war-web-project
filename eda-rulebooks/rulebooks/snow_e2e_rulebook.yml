@@ -1,0 +1,14 @@
+---
+- name: ServiceNow Trigger
+  sources:
+    - name: webhook
+      ansible.eda.webhook:
+        port: 5000
+
+  rules:
+    - name: Run AAP Job
+      condition: event.payload.execute == "true"
+      actions:
+        - run_job_template:
+            name: test_ping
+            organization: Ingram
